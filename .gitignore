@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.ipynb_checkpoints
+
+# Data
+data/raw/
+*.bz2
+*.zip
+*.tar.gz
+data/processed/*.csv
+data/processed/*.txt
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Virtual envs
+venv/
+.env/
+
+# OS Files
+.DS_Store
+Thumbs.db
