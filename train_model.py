@@ -1,11 +1,12 @@
 import pandas as pd
 import torch
-from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, Trainer, TrainingArguments
+from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
 from sklearn.model_selection import train_test_split
 from datasets import Dataset
 
 # ✅ Load preprocessed Amazon review data
 df = pd.read_csv("data/processed/amazon_train.csv")
+df = df.sample(1000, random_state=42)
 df = df[df['sentiment'].isin(['positive', 'neutral', 'negative'])]
 
 # ✅ Encode sentiment labels
@@ -34,24 +35,20 @@ model = DistilBertForSequenceClassification.from_pretrained("distilbert-base-unc
 # ✅ Set training parameters
 training_args = TrainingArguments(
     output_dir="./models/distilbert",
-    evaluation_strategy="epoch",
-    save_strategy="epoch",
-    num_train_epochs=2,
-    per_device_train_batch_size=16,
-    per_device_eval_batch_size=16,
-    learning_rate=2e-5,
-    weight_decay=0.01,
-    save_total_limit=1,
-    logging_dir="./logs",
-    logging_steps=10
+    num_train_epochs=1,
+    per_device_train_batch_size=16
 )
 
+
 # ✅ Initialize trainer
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    eval_dataset=val_dataset
+    eval_dataset=val_dataset,
+    tokenizer=tokenizer,  
+    data_collator=data_collator  
 )
 
 # ✅ Train model
