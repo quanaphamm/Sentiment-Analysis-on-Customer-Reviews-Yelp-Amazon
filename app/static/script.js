@@ -1,4 +1,4 @@
-// Triggered when user types in search bar
+// Search suggestions
 function searchItems() {
     const query = document.getElementById("itemSearch").value;
 
@@ -21,7 +21,7 @@ function searchItems() {
     });
 }
 
-// Triggered when user selects a business/place
+// When user selects a product/place
 function selectItem(selected) {
     document.getElementById("itemSearch").value = selected;
     document.getElementById("suggestions").innerHTML = "";
@@ -34,7 +34,6 @@ function selectItem(selected) {
     })
     .then(res => res.json())
     .then(data => {
-        // Display summary stats
         document.getElementById("summary").style.display = "block";
         document.getElementById("review-form").style.display = "block";
 
@@ -43,11 +42,9 @@ function selectItem(selected) {
         document.getElementById("negative").innerText = data.negative + "%";
         document.getElementById("suggestion").innerText = data.suggestion;
 
-        // Clear existing review list
         const existingList = document.querySelector("#summary ul.review-list");
         if (existingList) existingList.remove();
 
-        // Add top 10 reviews
         const reviewList = document.createElement("ul");
         reviewList.classList.add("review-list");
 
@@ -61,24 +58,23 @@ function selectItem(selected) {
     });
 }
 
-// Handle new review submission
+// Submit new review
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("review-form").addEventListener("submit", function (e) {
         e.preventDefault();
         const reviewText = document.getElementById("review").value;
+        const selected = document.getElementById("selected-item").innerText;
 
         fetch("/predict", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ review: reviewText })
+            body: JSON.stringify({ review: reviewText, selected: selected })
         })
         .then(res => res.json())
         .then(data => {
-            // Show prediction result
             document.getElementById("prediction-result").style.display = "block";
             document.getElementById("predicted-sentiment").innerText = data.sentiment;
 
-            // Prepend new review to list
             const newReviewItem = document.createElement("li");
             newReviewItem.innerHTML = `<strong>[${data.sentiment}]</strong> ${reviewText}`;
 
@@ -92,8 +88,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("summary").appendChild(newList);
             }
 
-            // Clear the review input box
+            // Clear input
             document.getElementById("review").value = "";
+            selectItem(selected);
         });
     });
 });
