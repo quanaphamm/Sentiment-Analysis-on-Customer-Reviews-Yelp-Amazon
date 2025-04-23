@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-# --- Load model & tokenizer ---
+# === Load model + tokenizer ===
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "../models/distilbert")
 tokenizer = DistilBertTokenizerFast.from_pretrained(MODEL_DIR)
 model = DistilBertForSequenceClassification.from_pretrained(MODEL_DIR)
@@ -16,7 +16,7 @@ model.to(device)
 
 label_map = {0: "Negative", 1: "Neutral", 2: "Positive"}
 
-# --- Load Yelp dataset ---
+# === Load Yelp data ===
 YELP_DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/processed/yelp_sample.csv")
 df = pd.read_csv(YELP_DATA_PATH)
 
@@ -24,7 +24,40 @@ df = pd.read_csv(YELP_DATA_PATH)
 def index():
     return render_template("index.html")
 
-# --- Autocomplete search ---
+# === Return top 10 visit & avoid ===
+@app.route("/top-places")
+def top_places():
+    grouped = df.groupby("product_or_place").agg({
+        "sentiment": list
+    }).reset_index()
+
+    visit, avoid = [], []
+
+    for _, row in grouped.iterrows():
+        name = row["product_or_place"]
+        sentiments = row["sentiment"]
+        pos = sentiments.count("positive")
+        neu = sentiments.count("neutral")
+        neg = sentiments.count("negative")
+        total = pos + neu + neg
+
+        if total < 5:
+            continue
+
+        if neg > pos and neg > neu:
+            avoid.append((name, total))
+        else:
+            visit.append((name, total))
+
+    visit = sorted(visit, key=lambda x: x[1], reverse=True)[:10]
+    avoid = sorted(avoid, key=lambda x: x[1], reverse=True)[:10]
+
+    return jsonify({
+        "visit": [x[0] for x in visit],
+        "avoid": [x[0] for x in avoid]
+    })
+
+# === Search by product/place name ===
 @app.route("/search", methods=["POST"])
 def search():
     data = request.get_json()
@@ -34,7 +67,7 @@ def search():
     matches = [place for place in all_places if query in place.lower()]
     return jsonify(matches[:10])
 
-# --- Show summary + recent reviews ---
+# === Summary with stats and latest reviews ===
 @app.route("/summary", methods=["POST"])
 def summary():
     data = request.get_json()
@@ -53,13 +86,12 @@ def summary():
     neu = round(counts.get("neutral", 0) * 100)
     neg = round(counts.get("negative", 0) * 100)
 
-    # ✅ Smart suggestion logic
+    # ✅ Improved logic
     if neg > pos and neg > neu:
         suggestion = "❌ Avoid"
     else:
         suggestion = "✅ Should Visit"
 
-    # ✅ Newest 10 reviews (reverse order)
     top_reviews = (
         filtered[["review", "sentiment"]]
         .iloc[::-1]
@@ -75,7 +107,7 @@ def summary():
         "reviews": top_reviews
     })
 
-# --- Predict sentiment + persist review ---
+# === Predict + Save new review ===
 @app.route("/predict", methods=["POST"])
 def predict():
     content = request.get_json()
@@ -85,7 +117,7 @@ def predict():
     if not review or not selected:
         return jsonify({"error": "Missing review or place name"}), 400
 
-    # Predict sentiment
+    # Predict
     inputs = tokenizer(review, return_tensors="pt", truncation=True, padding=True)
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
@@ -93,16 +125,16 @@ def predict():
         pred_id = torch.argmax(output.logits, dim=1).item()
         sentiment = label_map[pred_id]
 
-    # Save review to CSV
+    # Save to CSV
     new_row = pd.DataFrame([{
         "product_or_place": selected,
         "review": review,
-        "stars": "",  # Optional
+        "stars": "",  # optional
         "sentiment": sentiment
     }])
     new_row.to_csv(YELP_DATA_PATH, mode='a', header=False, index=False)
 
-    # Update in-memory DataFrame
+    # Refresh memory
     global df
     df = pd.read_csv(YELP_DATA_PATH)
 

@@ -1,4 +1,4 @@
-// Live search suggestions
+// Search input suggestions
 function searchItems() {
     const query = document.getElementById("itemSearch").value;
 
@@ -21,7 +21,7 @@ function searchItems() {
     });
 }
 
-// Select a product/place and fetch summary + reviews
+// Handle selection of product/place
 function selectItem(selected) {
     document.getElementById("itemSearch").value = selected;
     document.getElementById("suggestions").innerHTML = "";
@@ -59,7 +59,7 @@ function selectItem(selected) {
     });
 }
 
-// Handle review submission
+// Submit a review and append to list
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("review-form").addEventListener("submit", function (e) {
         e.preventDefault();
@@ -76,7 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("prediction-result").style.display = "block";
             document.getElementById("predicted-sentiment").innerText = data.sentiment;
 
-            // Prepend new review
             const newReviewItem = document.createElement("li");
             newReviewItem.innerHTML = `<strong>[${data.sentiment}]</strong> ${reviewText}`;
 
@@ -92,13 +91,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.getElementById("review").value = "";
 
-            // Optional: refresh stats and reviews
+            // 🔄 Re-fetch updated summary + stats
             selectItem(selected);
+        });
+    });
+
+    // Load Top 10 lists on page load
+    fetch("/top-places")
+    .then(res => res.json())
+    .then(data => {
+        const topVisit = document.getElementById("top-visit");
+        const topAvoid = document.getElementById("top-avoid");
+
+        data.visit.forEach(name => {
+            const li = document.createElement("li");
+            li.textContent = name;
+            li.onclick = () => selectItem(name);
+            li.style.cursor = "pointer";
+            topVisit.appendChild(li);
+        });
+
+        data.avoid.forEach(name => {
+            const li = document.createElement("li");
+            li.textContent = name;
+            li.onclick = () => selectItem(name);
+            li.style.cursor = "pointer";
+            topAvoid.appendChild(li);
         });
     });
 });
 
-// Back to Search
+// Reset back to search input
 function resetToSearch() {
     document.getElementById("itemSearch").value = "";
     document.getElementById("selected-item").innerText = "";
