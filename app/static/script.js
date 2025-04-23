@@ -1,4 +1,4 @@
-// Search suggestions
+// Live search suggestions
 function searchItems() {
     const query = document.getElementById("itemSearch").value;
 
@@ -21,11 +21,12 @@ function searchItems() {
     });
 }
 
-// When user selects a product/place
+// Select a product/place and fetch summary + reviews
 function selectItem(selected) {
     document.getElementById("itemSearch").value = selected;
     document.getElementById("suggestions").innerHTML = "";
     document.getElementById("selected-item").innerText = selected;
+    document.getElementById("reset-button").style.display = "inline-block";
 
     fetch("/summary", {
         method: "POST",
@@ -58,7 +59,7 @@ function selectItem(selected) {
     });
 }
 
-// Submit new review
+// Handle review submission
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("review-form").addEventListener("submit", function (e) {
         e.preventDefault();
@@ -75,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("prediction-result").style.display = "block";
             document.getElementById("predicted-sentiment").innerText = data.sentiment;
 
+            // Prepend new review
             const newReviewItem = document.createElement("li");
             newReviewItem.innerHTML = `<strong>[${data.sentiment}]</strong> ${reviewText}`;
 
@@ -88,9 +90,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("summary").appendChild(newList);
             }
 
-            // Clear input
             document.getElementById("review").value = "";
+
+            // Optional: refresh stats and reviews
             selectItem(selected);
         });
     });
 });
+
+// Back to Search
+function resetToSearch() {
+    document.getElementById("itemSearch").value = "";
+    document.getElementById("selected-item").innerText = "";
+    document.getElementById("suggestions").innerHTML = "";
+    document.getElementById("summary").style.display = "none";
+    document.getElementById("review-form").style.display = "none";
+    document.getElementById("prediction-result").style.display = "none";
+    document.getElementById("reset-button").style.display = "none";
+}

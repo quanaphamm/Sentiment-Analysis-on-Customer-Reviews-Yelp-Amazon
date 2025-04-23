@@ -24,7 +24,7 @@ df = pd.read_csv(YELP_DATA_PATH)
 def index():
     return render_template("index.html")
 
-# --- Search Suggestions ---
+# --- Autocomplete search ---
 @app.route("/search", methods=["POST"])
 def search():
     data = request.get_json()
@@ -34,7 +34,7 @@ def search():
     matches = [place for place in all_places if query in place.lower()]
     return jsonify(matches[:10])
 
-# --- Summary + Reviews ---
+# --- Show summary + recent reviews ---
 @app.route("/summary", methods=["POST"])
 def summary():
     data = request.get_json()
@@ -53,16 +53,16 @@ def summary():
     neu = round(counts.get("neutral", 0) * 100)
     neg = round(counts.get("negative", 0) * 100)
 
+    # ✅ Smart suggestion logic
     if neg > pos and neg > neu:
         suggestion = "❌ Avoid"
     else:
         suggestion = "✅ Should Visit"
 
-
-    # Get latest 10 reviews (reverse so newest are first)
+    # ✅ Newest 10 reviews (reverse order)
     top_reviews = (
         filtered[["review", "sentiment"]]
-        .iloc[::-1]  # newest first
+        .iloc[::-1]
         .head(10)
         .to_dict(orient="records")
     )
@@ -75,7 +75,7 @@ def summary():
         "reviews": top_reviews
     })
 
-# --- Predict & Save ---
+# --- Predict sentiment + persist review ---
 @app.route("/predict", methods=["POST"])
 def predict():
     content = request.get_json()
@@ -83,7 +83,7 @@ def predict():
     selected = content.get("selected", "")
 
     if not review or not selected:
-        return jsonify({"error": "Missing data"}), 400
+        return jsonify({"error": "Missing review or place name"}), 400
 
     # Predict sentiment
     inputs = tokenizer(review, return_tensors="pt", truncation=True, padding=True)
@@ -93,16 +93,16 @@ def predict():
         pred_id = torch.argmax(output.logits, dim=1).item()
         sentiment = label_map[pred_id]
 
-    # Save review to file
+    # Save review to CSV
     new_row = pd.DataFrame([{
         "product_or_place": selected,
         "review": review,
-        "stars": "",  # optional
+        "stars": "",  # Optional
         "sentiment": sentiment
     }])
     new_row.to_csv(YELP_DATA_PATH, mode='a', header=False, index=False)
 
-    # Reload updated data
+    # Update in-memory DataFrame
     global df
     df = pd.read_csv(YELP_DATA_PATH)
 

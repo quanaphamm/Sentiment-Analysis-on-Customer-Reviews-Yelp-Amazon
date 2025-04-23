@@ -9,13 +9,26 @@
 
   <h1>Sentiment Analysis on Customer Reviews</h1>
 
-  <!-- Search -->
+  <!-- 🔝 Top 10 Lists -->
+  <div id="homepage-suggestions">
+    <h3>Top 10 Places to Visit:</h3>
+    <ul id="top-visit"></ul>
+
+    <h3>Top 10 Places to Avoid:</h3>
+    <ul id="top-avoid"></ul>
+  </div>
+
+  <!-- 🔍 Search -->
   <label for="itemSearch">Search Product/Place:</label>
   <input type="text" id="itemSearch" oninput="searchItems()" placeholder="Type to search...">
   <ul id="suggestions"></ul>
 
-  <!-- Summary -->
+  <hr>
+
+  <!-- 📊 Summary -->
   <div id="summary" style="display:none;">
+    <button type="button" id="reset-button" style="display:none;" onclick="resetToSearch()">← Back to Search</button>
+
     <p><strong>Selected:</strong> <span id="selected-item"></span></p>
     <ul>
       <li>Positive: <span id="positive">--</span>%</li>
@@ -25,19 +38,18 @@
     <p><strong>Suggestion:</strong> <span id="suggestion">--</span></p>
   </div>
 
-  <!-- Review Input -->
+  <!-- 📝 Review Form -->
   <form id="review-form" style="display:none;">
     <label for="review">Write your review:</label><br>
     <textarea id="review" required></textarea><br>
     <button type="submit">Submit Review</button>
   </form>
 
-  <!-- Prediction Output -->
+  <!-- ✅ Prediction -->
   <div id="prediction-result" style="display:none;">
     <strong>Predicted Sentiment:</strong> <span id="predicted-sentiment"></span>
   </div>
 
   <script src="/static/script.js"></script>
-
 </body>
 </html>
