@@ -1,94 +1,99 @@
-// Step 1: Handle source dropdown
-function handleSourceChange(value) {
-    if (value === "amazon" || value === "yelp") {
-        document.getElementById("search-section").style.display = "block";
-        document.getElementById("review-section").style.display = "none";
-        document.getElementById("summary").style.display = "none";
-        document.getElementById("prediction-result").style.display = "none";
-        document.getElementById("itemSearch").value = "";
-        document.getElementById("suggestions").innerHTML = "";
-        searchItems(true);
-    }
-}
-
-function searchItems(forceShow = false) {
+// Triggered when user types in search bar
+function searchItems() {
     const query = document.getElementById("itemSearch").value;
-    const source = document.getElementById("source").value;
-
-    // Always show if forced or query is typed
-    if (!forceShow && query.length < 2) return;
 
     fetch("/search", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ query, source })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
     })
     .then(res => res.json())
     .then(data => {
         const list = document.getElementById("suggestions");
         list.innerHTML = "";
-
         data.forEach(item => {
             const li = document.createElement("li");
             li.textContent = item;
-            li.style.cursor = "pointer";
             li.onclick = () => selectItem(item);
+            li.style.cursor = "pointer";
             list.appendChild(li);
         });
     });
 }
 
-
-// Step 3: After user selects a product/place
-function selectItem(selectedText) {
-    const source = document.getElementById("source").value;
-
-    // Clear suggestions
+// Triggered when user selects a business/place
+function selectItem(selected) {
+    document.getElementById("itemSearch").value = selected;
     document.getElementById("suggestions").innerHTML = "";
-    document.getElementById("itemSearch").value = selectedText;
-    document.getElementById("selected-item").innerText = selectedText;
+    document.getElementById("selected-item").innerText = selected;
 
-    // Show review form and summary
-    document.getElementById("review-section").style.display = "block";
-
-    // Fetch summary
     fetch("/summary", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ selected: selectedText, source })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selected })
     })
     .then(res => res.json())
     .then(data => {
+        // Display summary stats
         document.getElementById("summary").style.display = "block";
+        document.getElementById("review-form").style.display = "block";
+
         document.getElementById("positive").innerText = data.positive + "%";
         document.getElementById("neutral").innerText = data.neutral + "%";
         document.getElementById("negative").innerText = data.negative + "%";
         document.getElementById("suggestion").innerText = data.suggestion;
+
+        // Clear existing review list
+        const existingList = document.querySelector("#summary ul.review-list");
+        if (existingList) existingList.remove();
+
+        // Add top 10 reviews
+        const reviewList = document.createElement("ul");
+        reviewList.classList.add("review-list");
+
+        data.reviews.forEach(r => {
+            const item = document.createElement("li");
+            item.innerHTML = `<strong>[${r.sentiment}]</strong> ${r.review}`;
+            reviewList.appendChild(item);
+        });
+
+        document.getElementById("summary").appendChild(reviewList);
     });
 }
 
-// Step 4: Handle new review submission
-document.addEventListener("DOMContentLoaded", function () {
-    const form = document.getElementById("review-form");
-    form.addEventListener("submit", function (e) {
+// Handle new review submission
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("review-form").addEventListener("submit", function (e) {
         e.preventDefault();
         const reviewText = document.getElementById("review").value;
 
         fetch("/predict", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ review: reviewText })
         })
         .then(res => res.json())
         .then(data => {
+            // Show prediction result
             document.getElementById("prediction-result").style.display = "block";
             document.getElementById("predicted-sentiment").innerText = data.sentiment;
+
+            // Prepend new review to list
+            const newReviewItem = document.createElement("li");
+            newReviewItem.innerHTML = `<strong>[${data.sentiment}]</strong> ${reviewText}`;
+
+            const reviewList = document.querySelector("#summary ul.review-list");
+            if (reviewList) {
+                reviewList.insertBefore(newReviewItem, reviewList.firstChild);
+            } else {
+                const newList = document.createElement("ul");
+                newList.classList.add("review-list");
+                newList.appendChild(newReviewItem);
+                document.getElementById("summary").appendChild(newList);
+            }
+
+            // Clear the review input box
+            document.getElementById("review").value = "";
         });
     });
 });

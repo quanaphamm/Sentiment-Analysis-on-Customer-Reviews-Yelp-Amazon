@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-# Load model and tokenizer
+# Load trained model and tokenizer
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "../models/distilbert")
 tokenizer = DistilBertTokenizerFast.from_pretrained(MODEL_DIR)
 model = DistilBertForSequenceClassification.from_pretrained(MODEL_DIR)
@@ -16,9 +16,9 @@ model.to(device)
 
 label_map = {0: "Negative", 1: "Neutral", 2: "Positive"}
 
-# Load datasets for search & summary
-AMAZON_DF = pd.read_csv(os.path.join(os.path.dirname(__file__), "../data/processed/amazon_train.csv"))
-YELP_DF = pd.read_csv(os.path.join(os.path.dirname(__file__), "../data/processed/yelp_sample.csv"))
+# Load Yelp data
+YELP_DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/processed/yelp_sample.csv")
+df = pd.read_csv(YELP_DATA_PATH)
 
 @app.route("/")
 def index():
@@ -26,60 +26,54 @@ def index():
 
 @app.route("/search", methods=["POST"])
 def search():
-    data = request.json
+    data = request.get_json()
     query = data.get("query", "").lower()
-    source = data.get("source", "")
 
-    if not query or not source:
-        return jsonify([])
-
-    if source == "amazon":
-        matches = AMAZON_DF["review"].dropna().unique()
-    else:
-        matches = YELP_DF["review"].dropna().unique()
-
-    filtered = [item for item in matches if query in item.lower()][:10]
-    return jsonify(filtered)
+    all_places = df["product_or_place"].dropna().unique()
+    matches = [place for place in all_places if query in place.lower()]
+    return jsonify(matches[:10])
 
 @app.route("/summary", methods=["POST"])
 def summary():
-    data = request.json
-    source = data.get("source", "")
+    data = request.get_json()
     selected = data.get("selected", "")
 
-    if not source or not selected:
-        return jsonify({})
+    filtered = df[df["product_or_place"].str.lower() == selected.lower()]
+    if filtered.empty:
+        return jsonify({
+            "positive": 0,
+            "neutral": 0,
+            "negative": 0,
+            "suggestion": "Not enough data",
+            "reviews": []
+        })
 
-    if source == "amazon":
-        df = AMAZON_DF[AMAZON_DF["review"].str.contains(selected, case=False, na=False)]
-    else:
-        df = YELP_DF[YELP_DF["review"].str.contains(selected, case=False, na=False)]
-
-    if df.empty:
-        return jsonify({"positive": 0, "neutral": 0, "negative": 0, "suggestion": "Not enough data"})
-
-    sentiment_counts = df["sentiment"].value_counts(normalize=True).to_dict()
-    pos = round(sentiment_counts.get("positive", 0) * 100)
-    neu = round(sentiment_counts.get("neutral", 0) * 100)
-    neg = round(sentiment_counts.get("negative", 0) * 100)
+    counts = filtered["sentiment"].value_counts(normalize=True).to_dict()
+    pos = round(counts.get("positive", 0) * 100)
+    neu = round(counts.get("neutral", 0) * 100)
+    neg = round(counts.get("negative", 0) * 100)
 
     if pos >= 60:
-        suggestion = "✅ Worth Buying" if source == "amazon" else "✅ Should Visit"
+        suggestion = "✅ Should Visit"
     elif neg >= 40:
         suggestion = "❌ Avoid"
     else:
         suggestion = "🤔 Mixed feedback"
 
+    top_reviews = filtered[["review", "sentiment"]].head(10).to_dict(orient="records")
+
     return jsonify({
         "positive": pos,
         "neutral": neu,
         "negative": neg,
-        "suggestion": suggestion
+        "suggestion": suggestion,
+        "reviews": top_reviews
     })
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    review = request.json.get("review", "")
+    review = request.get_json().get("review", "")
+
     if not review:
         return jsonify({"error": "No review provided"}), 400
 

@@ -1,82 +1,84 @@
+import os
 import pandas as pd
 import torch
 from transformers import (
     DistilBertTokenizerFast,
     DistilBertForSequenceClassification,
-    DataCollatorWithPadding
+    DataCollatorWithPadding,
+    get_scheduler,
 )
 from sklearn.model_selection import train_test_split
 from datasets import Dataset
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
-from transformers import get_scheduler
 from tqdm import tqdm
+import tempfile
 
-print("✅ Starting training script")
+# ✅ Load & Preprocess Yelp data
+df = pd.read_csv("data/processed/yelp_sample.csv")
+df = df[["product_or_place", "review", "sentiment"]]
+label_map = {"negative": 0, "neutral": 1, "positive": 2}
+df["label"] = df["sentiment"].map(label_map)
+df = df.sample(500, random_state=42)  # small set for testing
 
-# ✅ Load preprocessed Amazon review data
-df = pd.read_csv("data/processed/amazon_train.csv")
-df = df.sample(1000, random_state=42)
-df = df[df['sentiment'].isin(['positive', 'neutral', 'negative'])]
+# ✅ Train/Validation Split
+train_df, val_df = train_test_split(df[["review", "label"]], test_size=0.1, random_state=42)
 
-# ✅ Encode sentiment labels
-label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
-df['label'] = df['sentiment'].map(label_map)
+# ✅ Convert to Hugging Face Dataset
+train_dataset = Dataset.from_pandas(train_df.reset_index(drop=True))
+val_dataset = Dataset.from_pandas(val_df.reset_index(drop=True))
 
-# ✅ Split into train and validation sets
-train_df, val_df = train_test_split(df[['review', 'label']], test_size=0.1, random_state=42)
-
-# ✅ Convert to HuggingFace Datasets
-train_dataset = Dataset.from_pandas(train_df)
-val_dataset = Dataset.from_pandas(val_df)
-
-# ✅ Tokenize text
+# ✅ Tokenization
 tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
+def tokenize(batch): return tokenizer(batch["review"], padding=True, truncation=True)
+train_dataset = train_dataset.map(tokenize, batched=True, remove_columns=["review"])
+val_dataset = val_dataset.map(tokenize, batched=True, remove_columns=["review"])
 
-def tokenize(batch):
-    return tokenizer(batch["review"], padding=True, truncation=True)
+train_dataset.set_format(type="torch")
+val_dataset.set_format(type="torch")
 
-train_dataset = train_dataset.map(tokenize, batched=True)
-val_dataset = val_dataset.map(tokenize, batched=True)
-train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
-val_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
-
-# ✅ DataLoaders
+# ✅ Data Loaders
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
-train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, collate_fn=data_collator)
-eval_dataloader = DataLoader(val_dataset, batch_size=16, collate_fn=data_collator)
+train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, collate_fn=data_collator)
+val_loader = DataLoader(val_dataset, batch_size=16, collate_fn=data_collator)
 
-# ✅ Load model
+# ✅ Model Setup
 model = DistilBertForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=3)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
-# ✅ Optimizer and LR Scheduler
-optimizer = AdamW(model.parameters(), lr=2e-5, weight_decay=0.01)
-num_training_steps = len(train_dataloader) * 2
-lr_scheduler = get_scheduler(
-    name="linear",
-    optimizer=optimizer,
-    num_warmup_steps=0,
-    num_training_steps=num_training_steps
-)
+# ✅ Optimizer & Scheduler
+optimizer = AdamW(model.parameters(), lr=5e-5)
+num_training_steps = len(train_loader) * 2
+lr_scheduler = get_scheduler("linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
 
-# ✅ Training loop
-model.train()
+# ✅ Training Loop
 for epoch in range(2):
-    loop = tqdm(train_dataloader, desc=f"Epoch {epoch+1}")
+    model.train()
+    loop = tqdm(train_loader, desc=f"Epoch {epoch+1}")
     for batch in loop:
         batch = {k: v.to(device) for k, v in batch.items()}
-        outputs = model(**batch)
-        loss = outputs.loss
-
+        output = model(**batch)
+        loss = output.loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         lr_scheduler.step()
+        loop.set_postfix(loss=loss.item())
 
-# ✅ Save model
-model.save_pretrained("models/distilbert")
-tokenizer.save_pretrained("models/distilbert")
+# ✅ Save model safely
+save_dir = "models/distilbert"
 
-print("\n✅ Model training complete and saved to models/distilbert/")
+try:
+    os.makedirs(save_dir, exist_ok=True)
+    model.save_pretrained(save_dir)
+    tokenizer.save_pretrained(save_dir)
+    print(f"\n✅ Model trained and saved to {save_dir}/")
+
+except Exception as e:
+    print(f"\n⚠️ Error saving model to {save_dir}: {e}")
+    fallback_dir = tempfile.mkdtemp()
+    model.save_pretrained(fallback_dir)
+    tokenizer.save_pretrained(fallback_dir)
+    print(f"✅ Model saved to temporary path instead: {fallback_dir}")
+

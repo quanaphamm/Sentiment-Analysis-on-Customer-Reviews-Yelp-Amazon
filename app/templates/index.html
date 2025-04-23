@@ -1,92 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Sentiment Analysis on Customer Reviews</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 30px;
-            background-color: #f7f7f7;
-        }
-
-        h1 {
-            color: #333;
-        }
-
-        label {
-            font-weight: bold;
-            margin-top: 20px;
-            display: block;
-        }
-
-        select, input[type="text"], textarea {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            margin-top: 8px;
-            margin-bottom: 16px;
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-        }
-
-        .result, .summary {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #fff;
-            border-left: 5px solid #4CAF50;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Sentiment Analysis on Customer Reviews</title>
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
 
-<h1>Sentiment Analysis on Customer Reviews</h1>
+  <h1>Sentiment Analysis on Customer Reviews</h1>
 
-<!-- Step 1: Choose Data Source -->
-<label for="source">Choose Data Source:</label>
-<select id="source" name="source" onchange="handleSourceChange(this.value)">
-    <option value="">-- Select --</option>
-    <option value="amazon">Amazon</option>
-    <option value="yelp">Yelp</option>
-</select>
+  <!-- Search -->
+  <label for="itemSearch">Search Product/Place:</label>
+  <input type="text" id="itemSearch" oninput="searchItems()" placeholder="Type to search...">
+  <ul id="suggestions"></ul>
 
-<!-- Step 2: Search and Select Product/Place -->
-<div id="search-section" style="display:none;">
-    <label for="itemSearch">Search Product/Place:</label>
-    <input type="text" id="itemSearch" oninput="searchItems()" placeholder="Type to search...">
-    <ul id="suggestions" style="list-style: none; padding-left: 0;"></ul>
-</div>
-
-<!-- Step 3: Summary -->
-<div class="summary" id="summary" style="display:none;">
+  <!-- Summary -->
+  <div id="summary" style="display:none;">
     <p><strong>Selected:</strong> <span id="selected-item"></span></p>
-    <p><strong>Sentiment Summary:</strong></p>
     <ul>
-        <li>Positive: <span id="positive">--</span>%</li>
-        <li>Neutral: <span id="neutral">--</span>%</li>
-        <li>Negative: <span id="negative">--</span>%</li>
+      <li>Positive: <span id="positive">--</span>%</li>
+      <li>Neutral: <span id="neutral">--</span>%</li>
+      <li>Negative: <span id="negative">--</span>%</li>
     </ul>
     <p><strong>Suggestion:</strong> <span id="suggestion">--</span></p>
-</div>
+  </div>
 
-<!-- Step 4: Submit New Review -->
-<div id="review-section" style="display:none;">
-    <label for="review">Write Your Review:</label>
-    <form id="review-form">
-        <textarea name="review" id="review" required></textarea><br>
-        <button type="submit">Submit Review</button>
-    </form>
-</div>
+  <!-- Review Input -->
+  <form id="review-form" style="display:none;">
+    <label for="review">Write your review:</label><br>
+    <textarea id="review" required></textarea><br>
+    <button type="submit">Submit Review</button>
+  </form>
 
-<!-- Step 5: Prediction Result -->
-<div class="result" id="prediction-result" style="display:none;">
+  <!-- Prediction Output -->
+  <div id="prediction-result" style="display:none;">
     <strong>Predicted Sentiment:</strong> <span id="predicted-sentiment"></span>
-</div>
+  </div>
 
-<script src="/static/script.js"></script>
+  <script src="/static/script.js"></script>
 
 </body>
 </html>
