@@ -30,22 +30,23 @@
     <button type="button" id="reset-button" style="display:none;" onclick="resetToSearch()">← Back to Search</button>
 
     <p><strong>Selected:</strong> <span id="selected-item"></span></p>
+    <p><strong>Total Reviews:</strong> <span id="review-count">0</span></p>
     <ul>
-      <li>Positive: <span id="positive">--</span></li>
-      <li>Neutral: <span id="neutral">--</span></li>
-      <li>Negative: <span id="negative">--</span></li>
+      <li>Positive: <span id="positive">--</span>%</li>
+      <li>Neutral: <span id="neutral">--</span>%</li>
+      <li>Negative: <span id="negative">--</span>%</li>
     </ul>
     <p><strong>Suggestion:</strong> <span id="suggestion">--</span></p>
   </div>
 
-  <!-- 📝 Review Form -->
+  <!-- ✍️ Review Form -->
   <form id="review-form" style="display:none;">
     <label for="review">Write your review:</label><br>
     <textarea id="review" required></textarea><br>
     <button type="submit">Submit Review</button>
   </form>
 
-  <!-- ✅ Prediction -->
+  <!-- ✅ Prediction Result -->
   <div id="prediction-result" style="display:none;">
     <strong>Predicted Sentiment:</strong> <span id="predicted-sentiment"></span>
   </div>

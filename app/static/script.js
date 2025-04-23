@@ -1,4 +1,4 @@
-// Search input suggestions
+// 🔍 Live search
 function searchItems() {
     const query = document.getElementById("itemSearch").value;
 
@@ -9,58 +9,41 @@ function searchItems() {
     })
     .then(res => res.json())
     .then(data => {
-        const list = document.getElementById("suggestions");
-        list.innerHTML = "";
+        const suggestions = document.getElementById("suggestions");
+        suggestions.innerHTML = "";
         data.forEach(item => {
             const li = document.createElement("li");
             li.textContent = item;
             li.onclick = () => selectItem(item);
-            li.style.cursor = "pointer";
-            list.appendChild(li);
+            suggestions.appendChild(li);
         });
     });
 }
 
-// Handle selection of product/place
-function selectItem(selected) {
-    document.getElementById("itemSearch").value = selected;
-    document.getElementById("suggestions").innerHTML = "";
-    document.getElementById("selected-item").innerText = selected;
-    document.getElementById("reset-button").style.display = "inline-block";
-
-    fetch("/summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selected })
-    })
-    .then(res => res.json())
-    .then(data => {
-        document.getElementById("summary").style.display = "block";
-        document.getElementById("review-form").style.display = "block";
-
-        document.getElementById("positive").innerText = data.positive + "%";
-        document.getElementById("neutral").innerText = data.neutral + "%";
-        document.getElementById("negative").innerText = data.negative + "%";
-        document.getElementById("suggestion").innerText = data.suggestion;
-
-        const existingList = document.querySelector("#summary ul.review-list");
-        if (existingList) existingList.remove();
-
-        const reviewList = document.createElement("ul");
-        reviewList.classList.add("review-list");
-
-        data.reviews.forEach(r => {
-            const item = document.createElement("li");
-            item.innerHTML = `<strong>[${r.sentiment}]</strong> ${r.review}`;
-            reviewList.appendChild(item);
-        });
-
-        document.getElementById("summary").appendChild(reviewList);
-    });
-}
-
-// Submit a review and append to list
+// 🧭 On page load: show top 10 places
 document.addEventListener("DOMContentLoaded", () => {
+    fetch("/top-places")
+        .then(res => res.json())
+        .then(data => {
+            const topVisit = document.getElementById("top-visit");
+            const topAvoid = document.getElementById("top-avoid");
+
+            data.visit.forEach(place => {
+                const li = document.createElement("li");
+                li.textContent = place;
+                li.onclick = () => selectItem(place);
+                topVisit.appendChild(li);
+            });
+
+            data.avoid.forEach(place => {
+                const li = document.createElement("li");
+                li.textContent = place;
+                li.onclick = () => selectItem(place);
+                topAvoid.appendChild(li);
+            });
+        });
+
+    // ✍️ Handle form submit
     document.getElementById("review-form").addEventListener("submit", function (e) {
         e.preventDefault();
         const reviewText = document.getElementById("review").value;
@@ -90,41 +73,52 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             document.getElementById("review").value = "";
-
-            // 🔄 Re-fetch updated summary + stats
-            selectItem(selected);
-        });
-    });
-
-    // Load Top 10 lists on page load
-    fetch("/top-places")
-    .then(res => res.json())
-    .then(data => {
-        const topVisit = document.getElementById("top-visit");
-        const topAvoid = document.getElementById("top-avoid");
-
-        data.visit.forEach(name => {
-            const li = document.createElement("li");
-            li.textContent = name;
-            li.onclick = () => selectItem(name);
-            li.style.cursor = "pointer";
-            topVisit.appendChild(li);
-        });
-
-        data.avoid.forEach(name => {
-            const li = document.createElement("li");
-            li.textContent = name;
-            li.onclick = () => selectItem(name);
-            li.style.cursor = "pointer";
-            topAvoid.appendChild(li);
+            selectItem(selected);  // Refresh updated stats & review count
         });
     });
 });
 
-// Reset back to search input
+// 📊 When a user selects a place
+function selectItem(selected) {
+    document.getElementById("itemSearch").value = selected;
+    document.getElementById("suggestions").innerHTML = "";
+    document.getElementById("selected-item").innerText = selected;
+    document.getElementById("reset-button").style.display = "inline-block";
+
+    fetch("/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selected })
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("summary").style.display = "block";
+        document.getElementById("review-form").style.display = "block";
+        document.getElementById("positive").innerText = data.positive + "%";
+        document.getElementById("neutral").innerText = data.neutral + "%";
+        document.getElementById("negative").innerText = data.negative + "%";
+        document.getElementById("suggestion").innerText = data.suggestion;
+        document.getElementById("review-count").innerText = data.count || data.reviews.length;
+
+        const existingList = document.querySelector("#summary ul.review-list");
+        if (existingList) existingList.remove();
+
+        const reviewList = document.createElement("ul");
+        reviewList.classList.add("review-list");
+        data.reviews.forEach(r => {
+            const item = document.createElement("li");
+            item.innerHTML = `<strong>[${r.sentiment}]</strong> ${r.review}`;
+            reviewList.appendChild(item);
+        });
+        document.getElementById("summary").appendChild(reviewList);
+    });
+}
+
+// 🔙 Reset UI to search
 function resetToSearch() {
     document.getElementById("itemSearch").value = "";
     document.getElementById("selected-item").innerText = "";
+    document.getElementById("review-count").innerText = "";
     document.getElementById("suggestions").innerHTML = "";
     document.getElementById("summary").style.display = "none";
     document.getElementById("review-form").style.display = "none";

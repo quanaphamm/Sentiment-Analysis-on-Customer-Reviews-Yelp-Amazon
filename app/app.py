@@ -104,7 +104,8 @@ def summary():
         "neutral": neu,
         "negative": neg,
         "suggestion": suggestion,
-        "reviews": top_reviews
+        "reviews": top_reviews,
+        "count": len(filtered)
     })
 
 # === Predict + Save new review ===
