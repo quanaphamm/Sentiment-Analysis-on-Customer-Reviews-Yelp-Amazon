@@ -1,8 +1,18 @@
 import pandas as pd
 import torch
-from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
+from transformers import (
+    DistilBertTokenizerFast,
+    DistilBertForSequenceClassification,
+    DataCollatorWithPadding
+)
 from sklearn.model_selection import train_test_split
 from datasets import Dataset
+from torch.utils.data import DataLoader
+from torch.optim import AdamW
+from transformers import get_scheduler
+from tqdm import tqdm
+
+print("✅ Starting training script")
 
 # ✅ Load preprocessed Amazon review data
 df = pd.read_csv("data/processed/amazon_train.csv")
@@ -28,33 +38,44 @@ def tokenize(batch):
 
 train_dataset = train_dataset.map(tokenize, batched=True)
 val_dataset = val_dataset.map(tokenize, batched=True)
+train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
+val_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
+
+# ✅ DataLoaders
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, collate_fn=data_collator)
+eval_dataloader = DataLoader(val_dataset, batch_size=16, collate_fn=data_collator)
 
 # ✅ Load model
 model = DistilBertForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=3)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
 
-# ✅ Set training parameters
-training_args = TrainingArguments(
-    output_dir="./models/distilbert",
-    num_train_epochs=1,
-    per_device_train_batch_size=16
+# ✅ Optimizer and LR Scheduler
+optimizer = AdamW(model.parameters(), lr=2e-5, weight_decay=0.01)
+num_training_steps = len(train_dataloader) * 2
+lr_scheduler = get_scheduler(
+    name="linear",
+    optimizer=optimizer,
+    num_warmup_steps=0,
+    num_training_steps=num_training_steps
 )
 
+# ✅ Training loop
+model.train()
+for epoch in range(2):
+    loop = tqdm(train_dataloader, desc=f"Epoch {epoch+1}")
+    for batch in loop:
+        batch = {k: v.to(device) for k, v in batch.items()}
+        outputs = model(**batch)
+        loss = outputs.loss
 
-# ✅ Initialize trainer
-data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=train_dataset,
-    eval_dataset=val_dataset,
-    tokenizer=tokenizer,  
-    data_collator=data_collator  
-)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        lr_scheduler.step()
 
-# ✅ Train model
-trainer.train()
-
-# ✅ Save model & tokenizer
+# ✅ Save model
 model.save_pretrained("models/distilbert")
 tokenizer.save_pretrained("models/distilbert")
 

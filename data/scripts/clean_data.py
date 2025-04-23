@@ -31,6 +31,8 @@ def convert_amazon_txt_to_csv(txt_file, csv_file):
                 if len(parts) == 2:
                     label, text = parts
                     label = label.replace('__label__', '')
+                    label_map = {'1': 'negative', '2': 'positive'}
+                    label = label_map.get(label, 'neutral')
                     data.append([text, label])
                 
     df = pd.DataFrame(data, columns=['review', 'sentiment'])
